@@ -1,0 +1,81 @@
+name: Telegram Auto Sign-in
+
+on:
+  schedule:
+    # 每天北京时间早上 8:30 运行 (UTC 0:30)
+    - cron: '30 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  sign-in:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15  # 设置超时时间为 15 分钟，防止异常挂起
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+        cache-dependency-path: requirements.txt
+    
+    - name: Validate requirements.txt
+      run: |
+        if [ ! -f requirements.txt ] || [ ! -s requirements.txt ]; then
+          echo "❌ requirements.txt 不存在或为空!"
+          exit 1
+        fi
+        echo "✅ requirements.txt 检查通过"
+    
+    - name: Install dependencies
+      run: |
+        pip install --cache-dir ~/.cache/pip -r requirements.txt
+    
+    - name: Mask Secrets (Security)
+      run: |
+        if [ -n "${{ secrets.API_ID }}" ]; then
+          echo "::add-mask::${{ secrets.API_ID }}"
+        fi
+        if [ -n "${{ secrets.API_HASH }}" ]; then
+          echo "::add-mask::${{ secrets.API_HASH }}"
+        fi
+        if [ -n "${{ secrets.SESSION }}" ]; then
+          echo "::add-mask::${{ secrets.SESSION }}"
+        fi
+      env:
+        API_ID: ${{ secrets.API_ID }}
+        API_HASH: ${{ secrets.API_HASH }}
+        SESSION: ${{ secrets.SESSION }}
+    
+    - name: Run Telegram Sign-in
+      id: signin
+      env:
+        API_ID: ${{ secrets.API_ID }}
+        API_HASH: ${{ secrets.API_HASH }}
+        SESSION: ${{ secrets.SESSION }}
+      run: |
+        echo "🚀 开始执行签到任务..."
+        echo "📅 当前系统时间：$(date)"
+        python main.py
+        echo "✅ 任务执行完毕"
+    
+    - name: Final Summary
+      if: always()
+      run: |
+        echo ""
+        echo "========================================"
+        echo "          签到任务执行报告              "
+        echo "========================================"
+        echo "完成时间：$(date)"
+        echo "运行状态：${{ job.status }}"
+        echo "========================================"
+        if [[ "${{ job.status }}" == "failure" ]]; then
+          echo "❌ 检测到任务失败！请向上滚动查看详细错误日志。"
+          echo "💡 常见原因：Session 过期、网络波动、Bot 不存在。"
+        else
+          echo "✅ 任务成功完成！"
+        fi
+        echo "========================================"
