@@ -23,7 +23,7 @@ from telethon.errors import (
 from telethon.sessions import StringSession
 
 # ================= 配置区域 =================
-# 签到列表 (明文配置 - 你的9个Bot)
+# 签到列表 (明文配置 - 你的10个Bot/频道)
 SIGN_LIST: List[Tuple[str, str]] = [
     ("@sgkboxbot", "/qd"),
     ("@TBSGKBot", "/sign"),
@@ -33,12 +33,13 @@ SIGN_LIST: List[Tuple[str, str]] = [
     ("@Carll_Bomb_bot", "/qd"),
     ("@jdHappybot", "/qd"),
     ("@nb3344bot", "/qd"),
-    ("@SGK76H", "签到")
+    ("@SGK76H", "签到"),
+    ("@XFchart1", "签到")  # 新增频道签到
 ]
 
 # 重试与超时配置
 MAX_RETRIES = 3
-DEFAULT_DELAY = 3     # 任务间隔
+DEFAULT_DELAY = 3  # 任务间隔
 GLOBAL_TIMEOUT = 600  # 全局超时：10分钟
 CONNECT_TIMEOUT = 20  # 连接超时
 # ===========================================
@@ -74,7 +75,7 @@ async def sign_bot(client, bot_username, command, retry_count=0):
     """
     if not bot_username or not command:
         return False
-        
+    
     clean_user = str(bot_username).strip()
     clean_cmd = str(command).strip()
     
@@ -100,7 +101,7 @@ async def sign_bot(client, bot_username, command, retry_count=0):
         print(f"[{get_beijing_time()}] ❌ [失败] {clean_user}: 发送超时 (超过 15 秒)", flush=True)
         if retry_count < MAX_RETRIES:
             wait_time = 5 * (retry_count + 1)
-            print(f"[{get_beijing_time()}]    ↪ 检测到超时，{wait_time} 秒后重试...", flush=True)
+            print(f"[{get_beijing_time()}] ↪ 检测到超时，{wait_time} 秒后重试...", flush=True)
             await asyncio.sleep(wait_time)
             return await sign_bot(client, clean_user, clean_cmd, retry_count + 1)
         return False
@@ -126,7 +127,7 @@ async def sign_bot(client, bot_username, command, retry_count=0):
         if retry_count < MAX_RETRIES:
             if any(kw in error_msg.lower() for kw in ['timeout', 'connection', 'network', 'reset', 'server', 'read', 'write', 'broken']):
                 wait_time = 5 * (retry_count + 1)
-                print(f"[{get_beijing_time()}]    ↪ 检测到网络波动，{wait_time} 秒后重试...", flush=True)
+                print(f"[{get_beijing_time()}] ↪ 检测到网络波动，{wait_time} 秒后重试...", flush=True)
                 await asyncio.sleep(wait_time)
                 return await sign_bot(client, clean_user, clean_cmd, retry_count + 1)
         return False
@@ -180,7 +181,7 @@ async def main():
     except ValueError:
         print("❌ [严重错误] API_ID 必须是正整数，当前值无效。", flush=True)
         sys.exit(1)
-        
+    
     print("✅ 凭证格式检查通过", flush=True)
     
     # 3. 过滤无效条目 (预检查)
@@ -194,7 +195,7 @@ async def main():
     if not valid_list:
         print("❌ [严重错误] 没有有效的签到条目！", flush=True)
         sys.exit(1)
-        
+    
     print(f"📋 待签到任务数：{len(valid_list)}", flush=True)
     
     # 4. 创建客户端 (不自动连接)
@@ -257,7 +258,7 @@ async def main():
             print("💡 提示：如果是 'AuthKeyUnregistered'，请重新生成 Session。", flush=True)
         else:
             print("🎉 所有签到任务完成！", flush=True)
-            
+        
     except SessionPasswordNeededError:
         print(f"\n[{get_beijing_time()}] ❌ [错误] 账号需要两步验证密码！", flush=True)
         print("💡 解决方案：请在本地重新登录并生成新的 Session 字符串。", flush=True)
