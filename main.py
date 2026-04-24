@@ -38,7 +38,6 @@ SIGN_LIST: List[Tuple[str, str]] = [
 
 # 重试与超时配置
 MAX_RETRIES = 3
-TIMEOUT_SECONDS = 15  # 单次请求超时
 DEFAULT_DELAY = 3     # 任务间隔
 GLOBAL_TIMEOUT = 600  # 全局超时：10分钟
 CONNECT_TIMEOUT = 20  # 连接超时
@@ -85,12 +84,26 @@ async def sign_bot(client, bot_username, command, retry_count=0):
     try:
         print(f"[{get_beijing_time()}] 🔹 [尝试 {retry_count + 1}/{MAX_RETRIES}] 正在签到：{clean_user} -> 命令：{clean_cmd}", flush=True)
         
-        # 发送消息 (带超时)
-        await client.send_message(clean_user, clean_cmd, timeout=TIMEOUT_SECONDS)
+        # 🔥 核心修复：移除 timeout 参数，改用 asyncio.wait_for 包裹整个发送过程
+        # Telethon 的 send_message 不支持 timeout 参数，但我们可以包裹在 wait_for 中实现超时
+        await asyncio.wait_for(
+            client.send_message(clean_user, clean_cmd),
+            timeout=15  # 设置发送超时为 15 秒
+        )
         await asyncio.sleep(2)  # 模拟真人操作
         
         print(f"[{get_beijing_time()}] ✅ [成功] {clean_user} 签到命令已发送", flush=True)
         return True
+        
+    except asyncio.TimeoutError:
+        # 发送超时
+        print(f"[{get_beijing_time()}] ❌ [失败] {clean_user}: 发送超时 (超过 15 秒)", flush=True)
+        if retry_count < MAX_RETRIES:
+            wait_time = 5 * (retry_count + 1)
+            print(f"[{get_beijing_time()}]    ↪ 检测到超时，{wait_time} 秒后重试...", flush=True)
+            await asyncio.sleep(wait_time)
+            return await sign_bot(client, clean_user, clean_cmd, retry_count + 1)
+        return False
         
     except (PeerIdInvalidError, UsernameInvalidError, UserNotMutualContactError) as e:
         error_name = type(e).__name__
@@ -111,7 +124,7 @@ async def sign_bot(client, bot_username, command, retry_count=0):
         
         # 智能重试：仅对网络类错误重试
         if retry_count < MAX_RETRIES:
-            if any(kw in error_msg.lower() for kw in ['timeout', 'connection', 'network', 'reset', 'server', 'read', 'write']):
+            if any(kw in error_msg.lower() for kw in ['timeout', 'connection', 'network', 'reset', 'server', 'read', 'write', 'broken']):
                 wait_time = 5 * (retry_count + 1)
                 print(f"[{get_beijing_time()}]    ↪ 检测到网络波动，{wait_time} 秒后重试...", flush=True)
                 await asyncio.sleep(wait_time)
@@ -134,7 +147,7 @@ async def connect_with_timeout(client, timeout):
 
 async def main():
     print("=" * 60, flush=True)
-    print(f"🚀 Telegram 自动签到 (完美版 v2)", flush=True)
+    print(f"🚀 Telegram 自动签到 (完美版 v3 - 修复 timeout 参数)", flush=True)
     start_time = get_beijing_time()
     print(f"📅 启动时间：{start_time}", flush=True)
     print("=" * 60, flush=True)
@@ -191,7 +204,6 @@ async def main():
         api_hash,
         connection_retries=1,
         retry_delay=1,
-        timeout=TIMEOUT_SECONDS,
         auto_reconnect=False
     )
     
