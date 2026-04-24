@@ -149,9 +149,14 @@ async def main():
     api_hash = os.environ.get("API_HASH")
     session_str = os.environ.get("SESSION")
     
+    # 🔥 核心修复：强制清洗 Session，去除所有换行符、回车符和首尾空格
+    if session_str:
+        session_str = session_str.replace("\n", "").replace("\r", "").replace(" ", "").strip()
+    
     if not all([api_id_str, api_hash, session_str]):
         print("❌ [严重错误] 凭证缺失！", flush=True)
         print("请检查 GitHub Secrets 是否已设置：API_ID, API_HASH, SESSION", flush=True)
+        print(f"💡 提示：SESSION 已自动清洗 (去除了换行符和空格)。", flush=True)
         sys.exit(1)
     
     # 2. API_ID 严格校验 (必须为正整数)
