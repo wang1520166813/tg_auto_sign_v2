@@ -2,28 +2,14 @@ name: Telegram Auto Sign-in
 
 on:
   schedule:
-    # 心跳任务：每天北京时间凌晨 2:00 运行 (UTC 18:00) - 用于保持仓库活跃
-    - cron: '0 18 * * *'
-    # 自动签到：每天北京时间凌晨 2:30 运行 (UTC 18:30)
+    # 每天北京时间凌晨 02:30 运行 (UTC 时间 18:30)
     - cron: '30 18 * * *'
   workflow_dispatch:
 
 jobs:
-  # 心跳任务：仅用于保持仓库活跃，防止 GitHub 跳过定时任务
-  heartbeat:
-    runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'schedule' && github.event.schedule == '0 18 * * *' }}
-    steps:
-      - name: Heartbeat
-        run: |
-          echo "💓 [心跳] 仓库活跃性检查 - $(date)"
-          echo "✅ 心跳正常，防止 GitHub 跳过后续定时任务"
-
-  # 正式签到任务
   sign-in:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    if: ${{ github.event_name == 'schedule' && github.event.schedule == '30 18 * * *' }} || github.event_name == 'workflow_dispatch'
     
     steps:
     - name: Checkout code
