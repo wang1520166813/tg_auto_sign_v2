@@ -2,26 +2,40 @@ name: Telegram Auto Sign-in
 
 on:
   schedule:
-    # 每天北京时间早上 8:30 运行 (UTC 0:30)
-    - cron: '30 0 * * *'
+    # 心跳任务：每天北京时间凌晨 2:00 运行 (UTC 18:00) - 用于保持仓库活跃
+    - cron: '0 18 * * *'
+    # 自动签到：每天北京时间凌晨 2:30 运行 (UTC 18:30)
+    - cron: '30 18 * * *'
   workflow_dispatch:
 
 jobs:
+  # 心跳任务：仅用于保持仓库活跃，防止 GitHub 跳过定时任务
+  heartbeat:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'schedule' && github.event.schedule == '0 18 * * *' }}
+    steps:
+      - name: Heartbeat
+        run: |
+          echo "💓 [心跳] 仓库活跃性检查 - $(date)"
+          echo "✅ 心跳正常，防止 GitHub 跳过后续定时任务"
+
+  # 正式签到任务
   sign-in:
     runs-on: ubuntu-latest
-    timeout-minutes: 15  # 设置超时时间为 15 分钟，防止异常挂起
+    timeout-minutes: 15
+    if: ${{ github.event_name == 'schedule' && github.event.schedule == '30 18 * * *' }} || github.event_name == 'workflow_dispatch'
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    
+      
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
         cache: 'pip'
         cache-dependency-path: requirements.txt
-    
+      
     - name: Validate requirements.txt
       run: |
         if [ ! -f requirements.txt ] || [ ! -s requirements.txt ]; then
@@ -29,11 +43,11 @@ jobs:
           exit 1
         fi
         echo "✅ requirements.txt 检查通过"
-    
+      
     - name: Install dependencies
       run: |
         pip install --cache-dir ~/.cache/pip -r requirements.txt
-    
+      
     - name: Mask Secrets (Security)
       run: |
         if [ -n "${{ secrets.API_ID }}" ]; then
@@ -49,7 +63,7 @@ jobs:
         API_ID: ${{ secrets.API_ID }}
         API_HASH: ${{ secrets.API_HASH }}
         SESSION: ${{ secrets.SESSION }}
-    
+      
     - name: Run Telegram Sign-in
       id: signin
       env:
@@ -61,13 +75,13 @@ jobs:
         echo "📅 当前系统时间：$(date)"
         python main.py
         echo "✅ 任务执行完毕"
-    
+      
     - name: Final Summary
       if: always()
       run: |
         echo ""
         echo "========================================"
-        echo "          签到任务执行报告              "
+        echo " 签到任务执行报告 "
         echo "========================================"
         echo "完成时间：$(date)"
         echo "运行状态：${{ job.status }}"
